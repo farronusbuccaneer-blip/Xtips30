@@ -660,8 +660,8 @@ function initFileUploads() {
       let processedCount = 0;
       
       for (const file of files) {
-        if (!file.type.match('image/png')) {
-          showToast(`PNG以外のファイル（${file.name}）をスキップしました。`, 'danger');
+        if (!file.type.startsWith('image/')) {
+          showToast(`画像以外のファイル（${file.name}）をスキップしました。`, 'danger');
           continue;
         }
         
@@ -1053,12 +1053,12 @@ function populateSectionImagesGrid() {
       previewZone.appendChild(deleteBtn);
     } else {
       const placeholderSpan = document.createElement('span');
-      placeholderSpan.innerText = 'PNGをアップロード';
+      placeholderSpan.innerText = '画像をアップロード';
       previewZone.appendChild(placeholderSpan);
 
       const fileInput = document.createElement('input');
       fileInput.type = 'file';
-      fileInput.accept = 'image/png';
+      fileInput.accept = 'image/*';
       fileInput.style.display = 'none';
       previewZone.appendChild(fileInput);
 
@@ -1067,8 +1067,8 @@ function populateSectionImagesGrid() {
       fileInput.onchange = (e) => {
         const file = e.target.files[0];
         if (file) {
-          if (!file.type.match('image/png')) {
-            showToast('透過スタンプにはPNG画像をアップロードしてください。', 'danger');
+          if (!file.type.startsWith('image/')) {
+            showToast('画像ファイルをアップロードしてください。', 'danger');
             return;
           }
           const reader = new FileReader();
