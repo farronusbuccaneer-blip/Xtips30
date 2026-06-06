@@ -900,12 +900,17 @@ textarea#xml-input:focus {
 
   /* Reorder headers to the top in tab panes */
   #pane-templates .editor-section-header,
+  #pane-section-images .editor-section-header,
   #pane-overlays .editor-section-header {
     order: -1;
     cursor: pointer;
   }
 
   #pane-templates.collapsed > *:not(.editor-section-header) {
+    display: none !important;
+  }
+
+  #pane-section-images.collapsed > *:not(.editor-section-header) {
     display: none !important;
   }
 
@@ -922,8 +927,6 @@ textarea#xml-input:focus {
     transform: rotate(180deg);
   }
 
-
-
   .zoom-controls {
     display: none !important;
   }
@@ -932,8 +935,6 @@ textarea#xml-input:focus {
   .mobile-nav-bar {
     display: none !important;
   }
-
-
 }
 
 @media (max-width: 640px) {
@@ -947,3 +948,144 @@ textarea#xml-input:focus {
     padding: 8px;
   }
 }
+
+/* Section Image Upload Slots Styles */
+.section-image-slot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.light-theme .section-image-slot {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.section-image-slot:hover {
+  border-color: var(--accent-color);
+  background: rgba(99, 102, 241, 0.03);
+}
+
+.slot-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
+.slot-preview-container {
+  flex: 1;
+  height: 44px;
+  border: 1px dashed var(--border-color);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+  background: rgba(0, 0, 0, 0.12);
+  transition: all 0.2s ease;
+  padding: 0 8px;
+}
+
+.light-theme .slot-preview-container {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.slot-preview-container:hover {
+  border-color: var(--accent-color);
+  background: var(--accent-light);
+}
+
+.slot-preview-container span {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.slot-preview-container img {
+  height: 32px;
+  width: 32px;
+  object-fit: contain;
+  margin-right: 8px;
+  border-radius: 4px;
+  background: #FAF8F5;
+  padding: 2px;
+  border: 1px solid var(--border-color);
+}
+
+.slot-filename {
+  font-size: 11px;
+  color: var(--text-primary);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slot-delete-btn {
+  background: transparent;
+  border: none;
+  color: var(--danger-color);
+  cursor: pointer;
+  padding: 6px;
+  font-size: 14px;
+  transition: color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slot-delete-btn:hover {
+  color: var(--danger-hover);
+}
+
+/* Slot Move Actions Controls */
+.slot-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  justify-content: center;
+  align-items: center;
+}
+
+.slot-move-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  font-size: 11px;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  width: 20px;
+}
+
+.slot-move-btn:hover:not(:disabled) {
+  color: var(--accent-color);
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 4px;
+}
+
+.slot-move-btn:disabled {
+  color: var(--text-muted);
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: transparent !important;
+}
+

@@ -5,12 +5,12 @@
 
 /**
  * Parses raw text input containing XML-like tags into a structured object.
- * Tolerates malformed or unclosed tags gracefully.
+ * Tolerates malformed or unclosed tags gracefully. Supports up to 30 sections.
  */
 function parseXMLText(text) {
   const result = {
     title: '',
-    sections: Array.from({ length: 5 }, () => ({ row1: '', row2: '', row3: '' }))
+    sections: Array.from({ length: 30 }, () => ({ row1: '', row2: '' }))
   };
 
   if (!text) return result;
@@ -21,19 +21,17 @@ function parseXMLText(text) {
     result.title = titleMatch[1].trim();
   }
 
-  // 2. Extract Sections 1 to 5
-  for (let i = 1; i <= 5; i++) {
+  // 2. Extract Sections 1 to 30
+  for (let i = 1; i <= 30; i++) {
     const sectionRegex = new RegExp(`<section${i}>([\\s\\S]*?)<\/section${i}>`, 'i');
     const sectionMatch = text.match(sectionRegex);
     if (sectionMatch) {
       const sectionContent = sectionMatch[1];
       const r1Match = sectionContent.match(/<row1>([\s\S]*?)<\/row1>/i);
       const r2Match = sectionContent.match(/<row2>([\s\S]*?)<\/row2>/i);
-      const r3Match = sectionContent.match(/<row3>([\s\S]*?)<\/row3>/i);
 
       result.sections[i - 1].row1 = r1Match ? r1Match[1].trim() : '';
       result.sections[i - 1].row2 = r2Match ? r2Match[1].trim() : '';
-      result.sections[i - 1].row3 = r3Match ? r3Match[1].trim() : '';
     }
   }
 
@@ -183,7 +181,7 @@ function wrapStyledText(ctx, tokensArray, maxWidth) {
  * Performs dynamic fit-to-box rendering on the target canvas context.
  * Adjusts font sizes iteratively to ensure all text fits inside their boxes.
  */
-function renderTextOnCanvas(ctx, parsedText, coords) {
+function renderTextOnCanvas(ctx, parsedText, coords, uploadedImages = {}, templateId = '') {
   const fontFam = "'Segoe UI', 'Noto Sans JP', sans-serif";
   ctx.textBaseline = 'top';
 
@@ -196,17 +194,17 @@ function renderTextOnCanvas(ctx, parsedText, coords) {
   const originalWidth = ctx.canvas.width;
   const originalHeight = ctx.canvas.height;
 
-  // 1. Render Title (Strictly wraps on user explicit newlines only, scales down to fit)
+  // 1. Render Title
   if (parsedText.title && coords.title) {
     const box = coords.title;
-    let s = 110; // Increased starting Title Font Size
+    let s = 65; // Starting title font size optimized for h=130
     const minS = 16;
     
     const titleTokens = tokenizeText(parsedText.title);
     const titleLines = splitTokensByNewline(titleTokens);
     let titleTotalHeight = 0;
 
-    // Search for a font size that fits in width (1 line unless split by user) and height
+    // Search for a font size that fits in width and height
     while (s >= minS) {
       ctx.font = `bold ${s}px ${fontFam}`;
       
@@ -250,76 +248,151 @@ function renderTextOnCanvas(ctx, parsedText, coords) {
     });
   }
 
-  // 2. Render Sections 1 to 5
-  for (let i = 0; i < 5; i++) {
+  // 2. Render Sections (Up to 30)
+  const isGrid5x6 = (templateId === TEMPLATE_5_6_ID);
+  const numSections = coords.sections.length;
+  const sectionLayouts = [];
+
+  // Pass 1: Sizing Computation Pass
+  for (let i = 0; i < numSections; i++) {
     const sec = parsedText.sections[i];
     const box = coords.sections[i];
-    if (!sec || !box) continue;
-
-    // Skip section if empty
-    if (!sec.row1 && !sec.row2 && !sec.row3) continue;
-
-    let s = 60; // Increased starting base font size (two sizes larger, now 60)
-    const minS = 12;
-    
-    const r1Tokens = tokenizeText(sec.row1);
-    const r2Tokens = tokenizeText(sec.row2);
-    const r3Tokens = tokenizeText(sec.row3);
-
-    let r1Lines = [], r2Lines = [], r3Lines = [];
-    let r1H = 0, r2H = 0, r3H = 0;
-    let totalH = 0;
-    let s1 = 0;
-    let gap = 0;
-
-    // Search for a fitting font size
-    while (s >= minS) {
-      s1 = Math.round(1.70 * s); // Row 1 header is 1.70x multiplier
-      gap = Math.round(s * 0.70); // Increased gap between active rows
-      
-      // Calculate wraps and heights
-      if (sec.row1) {
-        ctx.font = `bold ${s1}px ${fontFam}`;
-        r1Lines = wrapStyledText(ctx, r1Tokens, box.w);
-        r1H = r1Lines.length > 0 ? (r1Lines.length - 1) * (s1 * 1.3) + s1 : 0;
-      } else {
-        r1Lines = [];
-        r1H = 0;
-      }
-
-      if (sec.row2) {
-        ctx.font = `bold ${s}px ${fontFam}`;
-        r2Lines = wrapStyledText(ctx, r2Tokens, box.w);
-        r2H = r2Lines.length > 0 ? (r2Lines.length - 1) * (s * 1.35) + s : 0;
-      } else {
-        r2Lines = [];
-        r2H = 0;
-      }
-
-      if (sec.row3) {
-        ctx.font = `bold ${s}px ${fontFam}`;
-        r3Lines = wrapStyledText(ctx, r3Tokens, box.w);
-        r3H = r3Lines.length > 0 ? (r3Lines.length - 1) * (s * 1.35) + s : 0;
-      } else {
-        r3Lines = [];
-        r3H = 0;
-      }
-
-      // Sum height and calculate gaps
-      let activeRows = 0;
-      if (r1H > 0) activeRows++;
-      if (r2H > 0) activeRows++;
-      if (r3H > 0) activeRows++;
-
-      totalH = r1H + r2H + r3H + (activeRows > 1 ? (activeRows - 1) * gap : 0);
-
-      if (totalH <= box.h) {
-        break;
-      }
-      s -= 0.5;
+    if (!sec || !box) {
+      sectionLayouts.push(null);
+      continue;
     }
 
-    // Draw Section Text (all bold)
+    // Skip section if empty
+    if (!sec.row1 && !sec.row2) {
+      sectionLayouts.push(null);
+      continue;
+    }
+
+    let s1 = 36; // Starting size for Row 1 (header)
+    let s = 24;  // Starting size for Row 2 (translation)
+    const minS1 = 10;
+    const minS = 6;
+    
+    // Fit Row 1 independently
+    let r1Lines = [];
+    let r1H = 0;
+    if (sec.row1) {
+      const r1Tokens = tokenizeText(sec.row1);
+      while (s1 >= minS1) {
+        ctx.font = `bold ${s1}px ${fontFam}`;
+        const fitsSingle = ctx.measureText(sec.row1).width <= box.w;
+        if (fitsSingle || s1 < 14) { // Allow wrap if below 14px
+          r1Lines = wrapStyledText(ctx, r1Tokens, box.w);
+          r1H = r1Lines.length > 0 ? (r1Lines.length - 1) * (s1 * 1.3) + s1 : 0;
+          if (r1H <= box.h * 0.6) {
+            break;
+          }
+        }
+        s1 -= 0.5;
+      }
+    }
+
+    // Fit Row 2 independently
+    let r2Lines = [];
+    let r2H = 0;
+    if (sec.row2) {
+      const r2Tokens = tokenizeText(sec.row2);
+      while (s >= minS) {
+        ctx.font = `bold ${s}px ${fontFam}`;
+        const fitsSingle = ctx.measureText(sec.row2).width <= box.w;
+        if (fitsSingle || s < 11) { // Allow wrap if below 11px
+          r2Lines = wrapStyledText(ctx, r2Tokens, box.w);
+          r2H = r2Lines.length > 0 ? (r2Lines.length - 1) * (s * 1.35) + s : 0;
+          if (r2H <= box.h * 0.8) {
+            break;
+          }
+        }
+        s -= 0.5;
+      }
+    }
+
+    // Adjust combined height
+    let gap = Math.round(Math.min(s1, s) * 0.40);
+    let activeRows = 0;
+    if (r1H > 0) activeRows++;
+    if (r2H > 0) activeRows++;
+    let totalH = r1H + r2H + (activeRows > 1 ? (activeRows - 1) * gap : 0);
+
+    // If combined height exceeds the box height, scale down Row 2 first (Row 1 stays as large as possible)
+    while (totalH > box.h && (s > minS || s1 > minS1)) {
+      if (s > minS) {
+        s -= 0.5;
+      } else if (s1 > minS1) {
+        s1 -= 0.5;
+      } else {
+        break;
+      }
+
+      gap = Math.round(Math.min(s1, s) * 0.40);
+
+      if (sec.row1) {
+        ctx.font = `bold ${s1}px ${fontFam}`;
+        r1Lines = wrapStyledText(ctx, tokenizeText(sec.row1), box.w);
+        r1H = r1Lines.length > 0 ? (r1Lines.length - 1) * (s1 * 1.3) + s1 : 0;
+      }
+      if (sec.row2) {
+        ctx.font = `bold ${s}px ${fontFam}`;
+        r2Lines = wrapStyledText(ctx, tokenizeText(sec.row2), box.w);
+        r2H = r2Lines.length > 0 ? (r2Lines.length - 1) * (s * 1.35) + s : 0;
+      }
+      totalH = r1H + r2H + (activeRows > 1 ? (activeRows - 1) * gap : 0);
+    }
+
+    sectionLayouts.push({
+      s1,
+      s,
+      r1Lines,
+      r2Lines,
+      r1H,
+      r2H,
+      gap,
+      activeRows,
+      totalH,
+      box,
+      sec
+    });
+  }
+
+  // Pass 2: Uniformity Pass for Row 1 in 5x6 layout
+  if (isGrid5x6) {
+    const activeS1s = sectionLayouts
+      .filter(l => l !== null && l.sec.row1)
+      .map(l => l.s1);
+
+    if (activeS1s.length > 0) {
+      const uniformS1 = Math.min(...activeS1s);
+
+      // Recompute layout for all sections using uniformS1
+      for (let i = 0; i < numSections; i++) {
+        const layout = sectionLayouts[i];
+        if (!layout || !layout.sec.row1) continue;
+
+        layout.s1 = uniformS1;
+        ctx.font = `bold ${uniformS1}px ${fontFam}`;
+        layout.r1Lines = wrapStyledText(ctx, tokenizeText(layout.sec.row1), layout.box.w);
+        layout.r1H = layout.r1Lines.length > 0 
+          ? (layout.r1Lines.length - 1) * (uniformS1 * 1.3) + uniformS1 
+          : 0;
+
+        layout.gap = Math.round(Math.min(uniformS1, layout.s) * 0.40);
+        layout.totalH = layout.r1H + layout.r2H + (layout.activeRows > 1 ? (layout.activeRows - 1) * layout.gap : 0);
+      }
+    }
+  }
+
+  // Pass 3: Rendering Pass
+  for (let i = 0; i < numSections; i++) {
+    const layout = sectionLayouts[i];
+    if (!layout) continue;
+
+    const { s1, s, r1Lines, r2Lines, totalH, gap, box, sec } = layout;
+
+    // Draw Section Text
     ctx.textAlign = 'left';
     let currentY = box.y + (box.h - totalH) / 2;
 
@@ -327,7 +400,10 @@ function renderTextOnCanvas(ctx, parsedText, coords) {
     if (r1Lines.length > 0) {
       ctx.font = `bold ${s1}px ${fontFam}`;
       r1Lines.forEach(line => {
-        let currentX = box.x;
+        const lineStr = line.map(t => t.char).join('');
+        const lineWidth = ctx.measureText(lineStr).width;
+        let currentX = isGrid5x6 ? box.x + (box.w - lineWidth) / 2 : box.x;
+        
         line.forEach(token => {
           ctx.fillStyle = token.isRed ? emphasisRed : mainCharcoal;
           ctx.fillText(token.char, currentX, currentY);
@@ -342,7 +418,10 @@ function renderTextOnCanvas(ctx, parsedText, coords) {
     if (r2Lines.length > 0) {
       ctx.font = `bold ${s}px ${fontFam}`;
       r2Lines.forEach(line => {
-        let currentX = box.x;
+        const lineStr = line.map(t => t.char).join('');
+        const lineWidth = ctx.measureText(lineStr).width;
+        let currentX = isGrid5x6 ? box.x + (box.w - lineWidth) / 2 : box.x;
+        
         line.forEach(token => {
           ctx.fillStyle = token.isRed ? emphasisRed : secondaryCharcoal;
           ctx.fillText(token.char, currentX, currentY);
@@ -350,35 +429,53 @@ function renderTextOnCanvas(ctx, parsedText, coords) {
         });
         currentY += s * 1.35;
       });
-      currentY += gap - (s * 0.35);
     }
 
-    // Draw Row 3
-    if (r3Lines.length > 0) {
-      ctx.font = `bold ${s}px ${fontFam}`;
-      r3Lines.forEach(line => {
-        let currentX = box.x;
-        line.forEach(token => {
-          ctx.fillStyle = token.isRed ? emphasisRed : secondaryCharcoal;
-          ctx.fillText(token.char, currentX, currentY);
-          currentX += ctx.measureText(token.char).width;
-        });
-        currentY += s * 1.35;
-      });
+    // Draw section-specific transparent image in fixed layout slot if uploaded
+    const sectionNum = i + 1;
+    if (uploadedImages && uploadedImages[sectionNum]) {
+      const img = uploadedImages[sectionNum];
+      if (templateId === TEMPLATE_15_2_ID) {
+        const col = i < 15 ? 0 : 1;
+        const row = i < 15 ? i : i - 15;
+        const cardX = 60 + col * 560;
+        const cardY = 230 + row * 86;
+        const cardW = 520;
+        const cardH = 80;
+        
+        const imgW = 64;
+        const imgH = 64;
+        const imgX = cardX + cardW - imgW - 10;
+        const imgY = cardY + (cardH - imgH) / 2;
+        ctx.drawImage(img, imgX, imgY, imgW, imgH);
+      } else if (templateId === TEMPLATE_5_6_ID) {
+        const row = Math.floor(i / 6);
+        const col = i % 6;
+        const cardX = 68 + col * 180;
+        const cardY = 230 + row * 252;
+        const cardW = 164;
+        const cardH = 236;
+        
+        const imgW = 70;
+        const imgH = 70;
+        const imgX = cardX + (cardW - imgW) / 2;
+        const imgY = cardY + cardH - imgH - 12;
+        ctx.drawImage(img, imgX, imgY, imgW, imgH);
+      }
     }
   }
 
   // 3. Render Footer (Branding & Bookmark CTA)
   // Scale footer relative to active template resolution
   const scaleX = originalWidth / 1200;
-  const scaleY = originalHeight / 1500;
+  const scaleY = originalHeight / 1600;
   const footerS = Math.round(28 * Math.min(scaleX, scaleY));
   
   ctx.font = `bold ${footerS}px ${fontFam}`;
   ctx.fillStyle = '#1E314B'; // Navy color matches template border
   ctx.textBaseline = 'middle';
   
-  const footerY = 1458 * scaleY; // Vertical center of the footer space (line is at 1425)
+  const footerY = 1550 * scaleY; // Vertical center of the footer space (line is at 1514+)
 
   // Bottom Left: @farron_us
   ctx.textAlign = 'left';

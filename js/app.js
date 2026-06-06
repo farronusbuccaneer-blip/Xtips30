@@ -10,6 +10,8 @@ let zoomRatio = 1.0;
 let originalWidth = 1200;
 let originalHeight = 1600;
 let textRenderDebounceTimer = null;
+window.sectionImages = {}; // Session transparent PNGs for sections 1-30 (in-memory)
+window.sectionImageNames = {}; // File names for transparent PNGs (in-memory)
 
 // DOM Elements
 const loadingScreen = document.getElementById('loading-screen');
@@ -64,21 +66,39 @@ function showToast(message, type = 'success') {
  * Initialize Default Assets in IndexedDB on first load
  */
 async function initializeDefaultAssets() {
-  // 1. Templates (Always put/overwrite the system default standard template to keep it updated with the 4:5 aspect ratio)
-  const defaultDataUrl = generateDefaultTemplate();
-  const defaultTemplate = {
-    id: DEFAULT_TEMPLATE_ID,
-    name: '標準チェックリスト',
-    data_url: defaultDataUrl,
+  // Clean up old template if present
+  await db.templates.delete('default-template');
+  await db.configs.delete('default-template');
+
+  // 1. Templates (Put both programmatically generated 30-item templates)
+  const template15_2Data = generate15x2Template();
+  const template5_6Data = generate5x6Template();
+
+  await db.templates.put({
+    id: TEMPLATE_15_2_ID,
+    name: '15行2列 (右側画像)',
+    data_url: template15_2Data,
+    created_at: Date.now() - 1000
+  });
+
+  await db.templates.put({
+    id: TEMPLATE_5_6_ID,
+    name: '5行6列 (下部画像)',
+    data_url: template5_6Data,
     created_at: Date.now()
-  };
-  await db.templates.put(defaultTemplate);
+  });
   
-  // Save/Overwrite default coordinates configuration
+  // Save configurations
   await db.configs.put({
-    template_id: DEFAULT_TEMPLATE_ID,
-    title: DEFAULT_COORDS.title,
-    sections: DEFAULT_COORDS.sections
+    template_id: TEMPLATE_15_2_ID,
+    title: get15x2Coords().title,
+    sections: get15x2Coords().sections
+  });
+
+  await db.configs.put({
+    template_id: TEMPLATE_5_6_ID,
+    title: get5x6Coords().title,
+    sections: get5x6Coords().sections
   });
 
   // 2. Stamps/Overlays
@@ -187,8 +207,8 @@ function renderCanvasBackground() {
     // 1. Draw template background
     ctx.drawImage(img, 0, 0, originalWidth, originalHeight);
 
-    // 2. Render fit-to-box texts
-    renderTextOnCanvas(ctx, parsed, activeCoords);
+    // 2. Render fit-to-box texts and custom section-specific images
+    renderTextOnCanvas(ctx, parsed, activeCoords, window.sectionImages, activeTemplate.id);
 
     // 3. Update interactive Fabric canvas background
     const dataUrl = hiddenCanvas.toDataURL('image/png');
@@ -515,22 +535,34 @@ function downloadGraphic() {
  */
 function initTabNavigation() {
   const tabTemplates = document.getElementById('tab-templates');
+  const tabSectionImages = document.getElementById('tab-section-images');
   const tabOverlays = document.getElementById('tab-overlays');
+  
   const paneTemplates = document.getElementById('pane-templates');
+  const paneSectionImages = document.getElementById('pane-section-images');
   const paneOverlays = document.getElementById('pane-overlays');
 
+  const deactivateAll = () => {
+    [tabTemplates, tabSectionImages, tabOverlays].forEach(t => t.classList.remove('active'));
+    [paneTemplates, paneSectionImages, paneOverlays].forEach(p => p.classList.remove('active'));
+  };
+
   tabTemplates.onclick = () => {
+    deactivateAll();
     tabTemplates.classList.add('active');
-    tabOverlays.classList.remove('active');
     paneTemplates.classList.add('active');
-    paneOverlays.classList.remove('active');
+  };
+
+  tabSectionImages.onclick = () => {
+    deactivateAll();
+    tabSectionImages.classList.add('active');
+    paneSectionImages.classList.add('active');
   };
 
   tabOverlays.onclick = () => {
+    deactivateAll();
     tabOverlays.classList.add('active');
-    tabTemplates.classList.remove('active');
     paneOverlays.classList.add('active');
-    paneTemplates.classList.remove('active');
   };
 }
 
@@ -615,6 +647,75 @@ function initFileUploads() {
   inputUploadOverlay.onchange = (e) => handleOverlayFile(e.target.files[0]);
 
   setupDragAndDrop(uploadOverlayZone, handleOverlayFile);
+
+  // 3. Bulk Section Images Upload (1-30)
+  const inputUploadBulk = document.getElementById('input-upload-bulk');
+  if (inputUploadBulk) {
+    inputUploadBulk.onchange = async (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+
+      showToast(`${files.length}枚の画像を一括処理中...`, 'warning');
+      
+      let processedCount = 0;
+      
+      for (const file of files) {
+        if (!file.type.match('image/png')) {
+          showToast(`PNG以外のファイル（${file.name}）をスキップしました。`, 'danger');
+          continue;
+        }
+        
+        // Parse slot number from filename
+        const numMatch = file.name.match(/(\d+)/);
+        let targetSlot = null;
+        if (numMatch) {
+          const num = parseInt(numMatch[1], 10);
+          if (num >= 1 && num <= 30) {
+            targetSlot = num;
+          }
+        }
+        
+        // If no slot matched, find first empty slot
+        if (targetSlot === null) {
+          for (let s = 1; s <= 30; s++) {
+            if (!window.sectionImages[s]) {
+              targetSlot = s;
+              break;
+            }
+          }
+        }
+        
+        if (targetSlot === null) {
+          targetSlot = 1;
+        }
+
+        // Read and load image
+        await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+              window.sectionImages[targetSlot] = img;
+              window.sectionImageNames[targetSlot] = file.name;
+              processedCount++;
+              resolve();
+            };
+            img.src = event.target.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      if (processedCount > 0) {
+        populateSectionImagesGrid();
+        triggerRenderDebounced();
+        showToast(`${processedCount}枚の画像をスロットに配置しました！`);
+      }
+      
+      // Clear input
+      inputUploadBulk.value = '';
+    };
+  }
 }
 
 function setupDragAndDrop(zone, fileHandler) {
@@ -791,12 +892,14 @@ function bindUIControls() {
 function initMobileNavigation() {
   const mbtnText = document.getElementById('mbtn-text');
   const mbtnTemplates = document.getElementById('mbtn-templates');
+  const mbtnSectionImages = document.getElementById('mbtn-section-images');
   const mbtnOverlays = document.getElementById('mbtn-overlays');
 
   const leftSidebar = document.querySelector('.editor-sidebar');
   const rightSidebar = document.querySelector('.assets-sidebar');
 
   const tabTemplates = document.getElementById('tab-templates');
+  const tabSectionImages = document.getElementById('tab-section-images');
   const tabOverlays = document.getElementById('tab-overlays');
 
   function clearMobileActive() {
@@ -822,6 +925,18 @@ function initMobileNavigation() {
     tabTemplates.click();
   };
 
+  if (mbtnSectionImages) {
+    mbtnSectionImages.onclick = (e) => {
+      e.stopPropagation();
+      clearMobileActive();
+      mbtnSectionImages.classList.add('active');
+      rightSidebar.classList.add('active-mobile');
+      
+      // Programmatically trigger section images tab
+      tabSectionImages.click();
+    };
+  }
+
   mbtnOverlays.onclick = (e) => {
     e.stopPropagation();
     clearMobileActive();
@@ -831,8 +946,6 @@ function initMobileNavigation() {
     // Programmatically trigger overlays tab inside assets pane
     tabOverlays.click();
   };
-
-
 
   // Set default active view on mobile on load (safely triggered after all click handlers are bound)
   if (window.innerWidth <= 768) {
@@ -846,6 +959,7 @@ function initMobileNavigation() {
 function initCollapsibleSections() {
   const leftSidebar = document.querySelector('.editor-sidebar');
   const paneTemplates = document.getElementById('pane-templates');
+  const paneSectionImages = document.getElementById('pane-section-images');
   const paneOverlays = document.getElementById('pane-overlays');
 
   const toggleSection = (element) => {
@@ -867,6 +981,11 @@ function initCollapsibleSections() {
     templatesHeader.onclick = () => toggleSection(paneTemplates);
   }
 
+  const sectionImagesHeader = paneSectionImages.querySelector('.editor-section-header');
+  if (sectionImagesHeader) {
+    sectionImagesHeader.onclick = () => toggleSection(paneSectionImages);
+  }
+
   const overlaysHeader = paneOverlays.querySelector('.editor-section-header');
   if (overlaysHeader) {
     overlaysHeader.onclick = () => toggleSection(paneOverlays);
@@ -876,8 +995,184 @@ function initCollapsibleSections() {
   if (window.innerWidth <= 768) {
     leftSidebar.classList.add('collapsed');
     paneTemplates.classList.add('collapsed');
+    paneSectionImages.classList.add('collapsed');
     paneOverlays.classList.add('collapsed');
   }
+}
+
+/**
+ * Programmatically populate the 1-30 section image upload rows
+ */
+function populateSectionImagesGrid() {
+  const container = document.getElementById('section-images-grid');
+  if (!container) return;
+  container.innerHTML = '';
+
+  for (let i = 1; i <= 30; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'section-image-slot';
+
+    // 1. Badge (Number 1-30)
+    const badge = document.createElement('div');
+    badge.className = 'slot-badge';
+    badge.innerText = i;
+    slot.appendChild(badge);
+
+    // 2. Preview & Upload Click Zone
+    const previewZone = document.createElement('div');
+    previewZone.className = 'slot-preview-container';
+    
+    const hasImage = !!window.sectionImages[i];
+    
+    if (hasImage) {
+      const img = window.sectionImages[i];
+      const filename = window.sectionImageNames[i] || `image_${i}.png`;
+
+      const thumb = document.createElement('img');
+      thumb.src = img.src;
+      previewZone.appendChild(thumb);
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'slot-filename';
+      nameSpan.innerText = filename;
+      nameSpan.title = filename; // Tooltip with full name
+      previewZone.appendChild(nameSpan);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'slot-delete-btn';
+      deleteBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      deleteBtn.title = '画像を削除';
+      deleteBtn.onclick = (e) => {
+        e.stopPropagation();
+        delete window.sectionImages[i];
+        delete window.sectionImageNames[i];
+        populateSectionImagesGrid();
+        triggerRenderDebounced();
+        showToast(`画像 ${i} を削除しました`, 'warning');
+      };
+      previewZone.appendChild(deleteBtn);
+    } else {
+      const placeholderSpan = document.createElement('span');
+      placeholderSpan.innerText = 'PNGをアップロード';
+      previewZone.appendChild(placeholderSpan);
+
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/png';
+      fileInput.style.display = 'none';
+      previewZone.appendChild(fileInput);
+
+      previewZone.onclick = () => fileInput.click();
+
+      fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          if (!file.type.match('image/png')) {
+            showToast('透過スタンプにはPNG画像をアップロードしてください。', 'danger');
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+              window.sectionImages[i] = img;
+              window.sectionImageNames[i] = file.name;
+              populateSectionImagesGrid();
+              triggerRenderDebounced();
+              showToast(`画像 ${i} を登録しました`);
+            };
+            img.src = event.target.result;
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+    }
+    
+    slot.appendChild(previewZone);
+
+    // 3. Move Actions (Up/Down/Number Shift)
+    const actionsContainer = document.createElement('div');
+    actionsContainer.className = 'slot-actions';
+
+    const upBtn = document.createElement('button');
+    upBtn.className = 'slot-move-btn';
+    upBtn.innerHTML = '<i class="fa-solid fa-chevron-up"></i>';
+    upBtn.title = '上へ移動';
+    upBtn.disabled = (i === 1);
+    upBtn.onclick = (e) => {
+      e.stopPropagation();
+      moveSlot(i, i - 1);
+    };
+    actionsContainer.appendChild(upBtn);
+
+    const downBtn = document.createElement('button');
+    downBtn.className = 'slot-move-btn';
+    downBtn.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
+    downBtn.title = '下へ移動';
+    downBtn.disabled = (i === 30);
+    downBtn.onclick = (e) => {
+      e.stopPropagation();
+      moveSlot(i, i + 1);
+    };
+    actionsContainer.appendChild(downBtn);
+
+    const numBtn = document.createElement('button');
+    numBtn.className = 'slot-move-btn';
+    numBtn.innerHTML = '<i class="fa-solid fa-hashtag"></i>';
+    numBtn.title = '指定位置へ移動';
+    numBtn.onclick = (e) => {
+      e.stopPropagation();
+      const targetStr = prompt(`スロット ${i} の画像を移動する先のスロット番号（1〜30）を入力してください:`, i);
+      if (targetStr !== null) {
+        const targetNum = parseInt(targetStr, 10);
+        if (isNaN(targetNum) || targetNum < 1 || targetNum > 30) {
+          showToast('1から30の間の数値を入力してください。', 'danger');
+          return;
+        }
+        moveSlot(i, targetNum);
+      }
+    };
+    actionsContainer.appendChild(numBtn);
+
+    slot.appendChild(actionsContainer);
+    container.appendChild(slot);
+  }
+}
+
+/**
+ * Moves an image from one slot to another, shifting all elements in between.
+ */
+function moveSlot(fromIdx, toIdx) {
+  if (fromIdx === toIdx) return;
+  
+  const imgToMove = window.sectionImages[fromIdx];
+  const nameToMove = window.sectionImageNames[fromIdx];
+
+  // If both are empty, do nothing
+  if (!imgToMove && !window.sectionImages[toIdx]) {
+    return;
+  }
+
+  if (fromIdx < toIdx) {
+    // Shift left: items from fromIdx + 1 to toIdx shift up
+    for (let k = fromIdx; k < toIdx; k++) {
+      window.sectionImages[k] = window.sectionImages[k + 1];
+      window.sectionImageNames[k] = window.sectionImageNames[k + 1];
+    }
+  } else {
+    // Shift right: items from toIdx to fromIdx - 1 shift down
+    for (let k = fromIdx; k > toIdx; k--) {
+      window.sectionImages[k] = window.sectionImages[k - 1];
+      window.sectionImageNames[k] = window.sectionImageNames[k - 1];
+    }
+  }
+
+  window.sectionImages[toIdx] = imgToMove;
+  window.sectionImageNames[toIdx] = nameToMove;
+
+  populateSectionImagesGrid();
+  triggerRenderDebounced();
+  showToast(`画像をスロット ${fromIdx} から ${toIdx} へ移動しました`);
 }
 
 /**
@@ -901,6 +1196,7 @@ window.onload = async () => {
       initXmlEditorShortcuts();
       initMobileNavigation();
       initCollapsibleSections();
+      populateSectionImagesGrid();
 
       // 5. Load default starter data
       xmlInput.value = DEFAULT_XML_TEXT;
