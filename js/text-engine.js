@@ -197,7 +197,7 @@ function renderTextOnCanvas(ctx, parsedText, coords, uploadedImages = {}, templa
   // 1. Render Title
   if (parsedText.title && coords.title) {
     const box = coords.title;
-    let s = 65; // Starting title font size optimized for h=130
+    let s = 100; // Starting title font size optimized for h=130
     const minS = 16;
     
     const titleTokens = tokenizeText(parsedText.title);
@@ -221,7 +221,7 @@ function renderTextOnCanvas(ctx, parsedText, coords, uploadedImages = {}, templa
         ? (titleLines.length - 1) * (s * 1.35) + s 
         : 0;
 
-      if (allLinesFit && titleTotalHeight <= box.h) {
+      if (allLinesFit && titleTotalHeight <= box.h - 20) {
         break;
       }
       s -= 1;
