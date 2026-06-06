@@ -23,7 +23,7 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
 
 /**
  * Returns coordinate bounds for the 15 rows by 2 columns template.
- * Canvas resolution: 1200x1600.
+ * Canvas resolution: 1200x1500 (4:5 Aspect Ratio).
  * Column-first ordering (1-15 left, 16-30 right).
  */
 function get15x2Coords() {
@@ -34,26 +34,26 @@ function get15x2Coords() {
     
     // Card geometry:
     const cardX = 60 + col * 560;
-    const cardY = 230 + row * 86;
+    const cardY = 200 + row * 80;
     const cardW = 520;
-    const cardH = 80;
+    const cardH = 74;
 
     sections.push({
       x: cardX + 48,           // Offset for number circle (48px)
-      y: cardY + 6,            // Offset leaving thin card border spacing
+      y: cardY + 5,            // Offset leaving thin card border spacing
       w: cardW - 48 - 84,      // Width leaving space for number badge (48px) and image slot (84px)
-      h: cardH - 12            // Height leaving top/bottom card padding
+      h: cardH - 10            // Height leaving top/bottom card padding
     });
   }
   return {
-    title: { x: 90, y: 50, w: 1020, h: 130 },
+    title: { x: 80, y: 50, w: 1040, h: 130 },
     sections: sections
   };
 }
 
 /**
  * Returns coordinate bounds for the 5 rows by 6 columns template.
- * Canvas resolution: 1200x1600.
+ * Canvas resolution: 1200x1500 (4:5 Aspect Ratio).
  * Row-first ordering.
  */
 function get5x6Coords() {
@@ -64,19 +64,19 @@ function get5x6Coords() {
     
     // Card geometry:
     const cardX = 68 + col * 180;
-    const cardY = 230 + row * 252;
+    const cardY = 200 + row * 232;
     const cardW = 164;
-    const cardH = 236;
+    const cardH = 216;
 
     sections.push({
       x: cardX + 10,           // Left padding inside card
-      y: cardY + 44,           // Offset leaving top number circle spacing (44px)
+      y: cardY + 42,           // Offset leaving top number circle spacing (42px)
       w: cardW - 20,           // Width leaving side paddings
-      h: cardH - 44 - 94       // Height leaving top circle (44px) and bottom image slot (94px)
+      h: cardH - 42 - 84       // Height leaving top circle (42px) and bottom image slot (84px)
     });
   }
   return {
-    title: { x: 90, y: 50, w: 1020, h: 130 },
+    title: { x: 80, y: 50, w: 1040, h: 130 },
     sections: sections
   };
 }
@@ -176,7 +176,7 @@ const DEFAULT_XML_TEXT = `<title>分かったふりの愛想笑いを防ぐ<red>
 
 <section19>
   <row1>Spot on.</row1>
-  <row2>的を射ていますね。</row2>
+  <row2>の領域を射ていますね。</row2>
 </section19>
 
 <section20>
@@ -240,7 +240,7 @@ const DEFAULT_XML_TEXT = `<title>分かったふりの愛想笑いを防ぐ<red>
 function drawBaseCanvasTemplate() {
   const canvas = document.createElement('canvas');
   canvas.width = 1200;
-  canvas.height = 1600;
+  canvas.height = 1500;
   const ctx = canvas.getContext('2d');
 
   // 1. Draw Cream Background
@@ -264,11 +264,11 @@ function drawBaseCanvasTemplate() {
   // 3. Draw Title Box (Drop Shadow and Navy Border)
   // Drop Shadow
   ctx.fillStyle = coralColor;
-  drawRoundedRect(ctx, 80 + 8, 40 + 8, 1040, 150, 12);
+  drawRoundedRect(ctx, 80 + 8, 50 + 8, 1040, 130, 12);
   ctx.fill();
   // Main Rect
   ctx.fillStyle = '#FFFFFF';
-  drawRoundedRect(ctx, 80, 40, 1040, 150, 12);
+  drawRoundedRect(ctx, 80, 50, 1040, 130, 12);
   ctx.fill();
   ctx.strokeStyle = navyColor;
   ctx.lineWidth = 6;
@@ -289,9 +289,9 @@ function generate15x2Template() {
     const col = k < 15 ? 0 : 1;
     const row = k < 15 ? k : k - 15;
     const boxX = 60 + col * 560;
-    const boxY = 230 + row * 86;
+    const boxY = 200 + row * 80;
     const boxW = 520;
-    const boxH = 80;
+    const boxH = 74;
 
     // Fill white card
     ctx.fillStyle = '#FFFFFF';
@@ -305,7 +305,7 @@ function generate15x2Template() {
 
     // Number Circle
     const circleX = boxX + 24;
-    const circleY = boxY + 40;
+    const circleY = boxY + 37;
     const circleRadius = 14;
 
     ctx.beginPath();
@@ -336,9 +336,9 @@ function generate5x6Template() {
     const row = Math.floor(k / 6);
     const col = k % 6;
     const boxX = 68 + col * 180;
-    const boxY = 230 + row * 252;
+    const boxY = 200 + row * 232;
     const boxW = 164;
-    const boxH = 236;
+    const boxH = 216;
 
     // Fill white card
     ctx.fillStyle = '#FFFFFF';
@@ -377,7 +377,7 @@ function generate5x6Template() {
  */
 function getScaledCoords(targetWidth, targetHeight) {
   const scaleX = targetWidth / 1200;
-  const scaleY = targetHeight / 1600;
+  const scaleY = targetHeight / 1500;
 
   const baseCoords = get15x2Coords();
   return {

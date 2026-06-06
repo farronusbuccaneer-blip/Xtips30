@@ -439,12 +439,12 @@ function renderTextOnCanvas(ctx, parsedText, coords, uploadedImages = {}, templa
         const col = i < 15 ? 0 : 1;
         const row = i < 15 ? i : i - 15;
         const cardX = 60 + col * 560;
-        const cardY = 230 + row * 86;
+        const cardY = 200 + row * 80;
         const cardW = 520;
-        const cardH = 80;
+        const cardH = 74;
         
-        const imgW = 64;
-        const imgH = 64;
+        const imgW = 60;
+        const imgH = 60;
         const imgX = cardX + cardW - imgW - 10;
         const imgY = cardY + (cardH - imgH) / 2;
         ctx.drawImage(img, imgX, imgY, imgW, imgH);
@@ -452,14 +452,14 @@ function renderTextOnCanvas(ctx, parsedText, coords, uploadedImages = {}, templa
         const row = Math.floor(i / 6);
         const col = i % 6;
         const cardX = 68 + col * 180;
-        const cardY = 230 + row * 252;
+        const cardY = 200 + row * 232;
         const cardW = 164;
-        const cardH = 236;
+        const cardH = 216;
         
         const imgW = 70;
         const imgH = 70;
         const imgX = cardX + (cardW - imgW) / 2;
-        const imgY = cardY + cardH - imgH - 12;
+        const imgY = cardY + cardH - imgH - 10;
         ctx.drawImage(img, imgX, imgY, imgW, imgH);
       }
     }
@@ -468,14 +468,14 @@ function renderTextOnCanvas(ctx, parsedText, coords, uploadedImages = {}, templa
   // 3. Render Footer (Branding & Bookmark CTA)
   // Scale footer relative to active template resolution
   const scaleX = originalWidth / 1200;
-  const scaleY = originalHeight / 1600;
+  const scaleY = originalHeight / 1500;
   const footerS = Math.round(28 * Math.min(scaleX, scaleY));
   
   ctx.font = `bold ${footerS}px ${fontFam}`;
   ctx.fillStyle = '#1E314B'; // Navy color matches template border
   ctx.textBaseline = 'middle';
   
-  const footerY = 1550 * scaleY; // Vertical center of the footer space (line is at 1514+)
+  const footerY = 1450 * scaleY; // Vertical center of the footer space (line is at 1394+)
 
   // Bottom Left: @farron_us
   ctx.textAlign = 'left';
