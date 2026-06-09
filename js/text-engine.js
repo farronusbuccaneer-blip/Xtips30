@@ -430,39 +430,6 @@ function renderTextOnCanvas(ctx, parsedText, coords, uploadedImages = {}, templa
         currentY += s * 1.35;
       });
     }
-
-    // Draw section-specific transparent image in fixed layout slot if uploaded
-    const sectionNum = i + 1;
-    if (uploadedImages && uploadedImages[sectionNum]) {
-      const img = uploadedImages[sectionNum];
-      if (templateId === TEMPLATE_15_2_ID) {
-        const col = i < 15 ? 0 : 1;
-        const row = i < 15 ? i : i - 15;
-        const cardX = 60 + col * 560;
-        const cardY = 200 + row * 80;
-        const cardW = 520;
-        const cardH = 74;
-        
-        const imgW = 60;
-        const imgH = 60;
-        const imgX = cardX + cardW - imgW - 10;
-        const imgY = cardY + (cardH - imgH) / 2;
-        ctx.drawImage(img, imgX, imgY, imgW, imgH);
-      } else if (templateId === TEMPLATE_5_6_ID) {
-        const row = Math.floor(i / 6);
-        const col = i % 6;
-        const cardX = 68 + col * 180;
-        const cardY = 200 + row * 232;
-        const cardW = 164;
-        const cardH = 216;
-        
-        const imgW = 70;
-        const imgH = 70;
-        const imgX = cardX + (cardW - imgW) / 2;
-        const imgY = cardY + cardH - imgH - 10;
-        ctx.drawImage(img, imgX, imgY, imgW, imgH);
-      }
-    }
   }
 
   // 3. Render Footer (Branding & Bookmark CTA)

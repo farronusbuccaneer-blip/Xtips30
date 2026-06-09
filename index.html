@@ -196,6 +196,22 @@
     </div>
   </div>
 
+  <!-- Stamp Picker Modal -->
+  <div id="stamp-picker-modal" class="mobile-modal" style="display: none;">
+    <div class="mobile-modal-content" style="max-width: 500px; width: 90%;">
+      <div class="mobile-modal-title">
+        <i class="fa-solid fa-face-smile" style="color: var(--accent-color);"></i>
+        <span>透過スタンプを選択</span>
+      </div>
+      <div class="assets-grid" id="modal-stamps-grid" style="max-height: 300px; overflow-y: auto; margin: 15px 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 5px;">
+        <!-- Overlays list populated here -->
+      </div>
+      <button id="btn-close-stamp-modal" class="btn btn-secondary" style="width: 100%;">
+        <i class="fa-solid fa-xmark"></i> キャンセル
+      </button>
+    </div>
+  </div>
+
   <!-- Float Toast Notifications -->
   <div id="toast-container" class="toast-container"></div>
 

@@ -12,6 +12,8 @@ let originalHeight = 1500;
 let textRenderDebounceTimer = null;
 window.sectionImages = {}; // Session transparent PNGs for sections 1-30 (in-memory)
 window.sectionImageNames = {}; // File names for transparent PNGs (in-memory)
+window.titleImage = null; // Session transparent PNG/stamp for title (in-memory)
+window.titleImageName = ''; // File name for title transparent PNG/stamp (in-memory)
 
 // DOM Elements
 const loadingScreen = document.getElementById('loading-screen');
@@ -213,7 +215,9 @@ function renderCanvasBackground() {
     // 3. Update interactive Fabric canvas background
     const dataUrl = hiddenCanvas.toDataURL('image/png');
     fabric.Image.fromURL(dataUrl, (fabricImg) => {
-      canvas.setBackgroundImage(fabricImg, canvas.renderAll.bind(canvas), {
+      canvas.setBackgroundImage(fabricImg, () => {
+        syncFabricImages();
+      }, {
         originX: 'left',
         originY: 'top',
         width: originalWidth,
@@ -460,7 +464,6 @@ function downloadGraphic() {
     const overlays = canvas.getObjects();
     
     overlays.forEach(overlay => {
-      if (overlay.name === 'title' || overlay.name?.startsWith('section')) return;
       if (!overlay._element) return;
 
       ctx.save();
@@ -1001,13 +1004,324 @@ function initCollapsibleSections() {
 }
 
 /**
- * Programmatically populate the 1-30 section image upload rows
+ * Opens stamp picker modal to select an overlay
+ */
+async function openStampPicker(onSelect) {
+  const modal = document.getElementById('stamp-picker-modal');
+  const grid = document.getElementById('modal-stamps-grid');
+  const closeBtn = document.getElementById('btn-close-stamp-modal');
+  
+  if (!modal || !grid) return;
+  
+  grid.innerHTML = '';
+  
+  const list = await db.overlays.orderBy('created_at').reverse().toArray();
+  
+  if (list.length === 0) {
+    grid.innerHTML = '<div style="grid-column: span 4; text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0;">登録されているスタンプがありません。「装飾PNG」タブからスタンプをアップロードしてください。</div>';
+  } else {
+    list.forEach(o => {
+      const item = document.createElement('div');
+      item.className = 'asset-card';
+      item.style.cursor = 'pointer';
+      item.style.padding = '8px';
+      
+      const img = document.createElement('img');
+      img.src = o.data_url;
+      img.style.width = '100%';
+      img.style.height = 'auto';
+      img.style.objectFit = 'contain';
+      item.appendChild(img);
+      
+      const label = document.createElement('span');
+      label.innerText = o.name;
+      label.style.fontSize = '10px';
+      label.style.display = 'block';
+      label.style.textAlign = 'center';
+      label.style.marginTop = '4px';
+      label.style.overflow = 'hidden';
+      label.style.textOverflow = 'ellipsis';
+      label.style.whiteSpace = 'nowrap';
+      item.appendChild(label);
+      
+      item.onclick = () => {
+        const imageElement = new Image();
+        imageElement.onload = () => {
+          onSelect(imageElement, o.name);
+          modal.style.display = 'none';
+        };
+        imageElement.src = o.data_url;
+      };
+      
+      grid.appendChild(item);
+    });
+  }
+  
+  closeBtn.onclick = () => {
+    modal.style.display = 'none';
+  };
+  
+  modal.style.display = 'flex';
+}
+
+/**
+ * Synchronize Title & Section images with Fabric Canvas overlays
+ */
+function syncFabricImages() {
+  if (!canvas) return;
+
+  // 1. Sync Title Image
+  const titleObj = canvas.getObjects().find(o => o.name === 'title');
+  if (window.titleImage) {
+    if (!titleObj) {
+      const fabricImg = new fabric.Image(window.titleImage, {
+        name: 'title',
+        left: 1060,
+        top: 165,
+        originX: 'center',
+        originY: 'center',
+        lockMovementX: true,
+        lockMovementY: true,
+        centeredScaling: true,
+        lockUniScaling: true,
+        uniformScaling: true,
+        hasRotatingPoint: false,
+        cornerColor: '#6366F1',
+        cornerSize: 12,
+        transparentCorners: false
+      });
+      fabricImg.setControlsVisibility({
+        mt: false, mb: false, ml: false, mr: false, mtr: false
+      });
+      // Scale initially so height is 160px
+      const scale = 160 / (window.titleImage.naturalHeight || window.titleImage.height);
+      fabricImg.set({
+        scaleX: scale,
+        scaleY: scale
+      });
+      canvas.add(fabricImg);
+    } else {
+      if (titleObj._element !== window.titleImage) {
+        titleObj.setElement(window.titleImage);
+        titleObj.set({
+          width: window.titleImage.naturalWidth || window.titleImage.width,
+          height: window.titleImage.naturalHeight || window.titleImage.height
+        });
+        const scale = 160 / (window.titleImage.naturalHeight || window.titleImage.height);
+        titleObj.set({
+          scaleX: scale,
+          scaleY: scale
+        });
+      }
+      titleObj.set({ left: 1060, top: 165 });
+    }
+  } else if (titleObj) {
+    canvas.remove(titleObj);
+  }
+
+  // 2. Sync Section Images
+  for (let i = 1; i <= 30; i++) {
+    const secObj = canvas.getObjects().find(o => o.name === 'section' + i);
+    if (window.sectionImages[i]) {
+      const idx = i - 1;
+      let targetLeft = 0;
+      let targetTop = 0;
+
+      if (activeTemplate && activeTemplate.id === TEMPLATE_15_2_ID) {
+        const col = idx < 15 ? 0 : 1;
+        const row = idx < 15 ? idx : idx - 15;
+        const cardX = 60 + col * 560;
+        const cardY = 200 + row * 80;
+        const cardW = 520;
+        const cardH = 74;
+        const imgW = 60;
+        const imgH = 60;
+        targetLeft = cardX + cardW - imgW - 10 + imgW / 2;
+        targetTop = cardY + (cardH - imgH) / 2 + imgH / 2;
+      } else if (activeTemplate && activeTemplate.id === TEMPLATE_5_6_ID) {
+        const row = Math.floor(idx / 6);
+        const col = idx % 6;
+        const cardX = 68 + col * 180;
+        const cardY = 200 + row * 232;
+        const cardW = 164;
+        const cardH = 216;
+        const imgW = 70;
+        const imgH = 70;
+        targetLeft = cardX + (cardW - imgW) / 2 + imgW / 2;
+        targetTop = cardY + cardH - imgH - 10 + imgH / 2;
+      }
+
+      if (!secObj) {
+        const fabricImg = new fabric.Image(window.sectionImages[i], {
+          name: 'section' + i,
+          left: targetLeft,
+          top: targetTop,
+          originX: 'center',
+          originY: 'center',
+          lockMovementX: true,
+          lockMovementY: true,
+          centeredScaling: true,
+          lockUniScaling: true,
+          uniformScaling: true,
+          hasRotatingPoint: false,
+          cornerColor: '#6366F1',
+          cornerSize: 12,
+          transparentCorners: false
+        });
+        fabricImg.setControlsVisibility({
+          mt: false, mb: false, ml: false, mr: false, mtr: false
+        });
+        
+        const maxW = (activeTemplate && activeTemplate.id === TEMPLATE_15_2_ID) ? 60 : 70;
+        const maxH = (activeTemplate && activeTemplate.id === TEMPLATE_15_2_ID) ? 60 : 70;
+        const scale = Math.min(maxW / (window.sectionImages[i].naturalWidth || window.sectionImages[i].width), maxH / (window.sectionImages[i].naturalHeight || window.sectionImages[i].height));
+        fabricImg.set({
+          scaleX: scale,
+          scaleY: scale
+        });
+        canvas.add(fabricImg);
+      } else {
+        if (secObj._element !== window.sectionImages[i]) {
+          secObj.setElement(window.sectionImages[i]);
+          secObj.set({
+            width: window.sectionImages[i].naturalWidth || window.sectionImages[i].width,
+            height: window.sectionImages[i].naturalHeight || window.sectionImages[i].height
+          });
+          const maxW = (activeTemplate && activeTemplate.id === TEMPLATE_15_2_ID) ? 60 : 70;
+          const maxH = (activeTemplate && activeTemplate.id === TEMPLATE_15_2_ID) ? 60 : 70;
+          const scale = Math.min(maxW / (window.sectionImages[i].naturalWidth || window.sectionImages[i].width), maxH / (window.sectionImages[i].naturalHeight || window.sectionImages[i].height));
+          secObj.set({
+            scaleX: scale,
+            scaleY: scale
+          });
+        }
+        secObj.set({ left: targetLeft, top: targetTop });
+      }
+    } else if (secObj) {
+      canvas.remove(secObj);
+    }
+  }
+
+  canvas.renderAll();
+}
+
+/**
+ * Programmatically populate the 1-30 section image upload rows and title image slot
  */
 function populateSectionImagesGrid() {
   const container = document.getElementById('section-images-grid');
   if (!container) return;
   container.innerHTML = '';
 
+  // --- Title Image Slot ---
+  const titleSlot = document.createElement('div');
+  titleSlot.className = 'section-image-slot title-image-slot';
+  titleSlot.style.border = '2px dashed var(--accent-color)';
+  titleSlot.style.borderRadius = '8px';
+  titleSlot.style.padding = '8px';
+  titleSlot.style.marginBottom = '12px';
+  titleSlot.style.background = 'rgba(99, 102, 241, 0.05)';
+
+  const titleBadge = document.createElement('div');
+  titleBadge.className = 'slot-badge';
+  titleBadge.style.background = 'var(--accent-color)';
+  titleBadge.innerText = 'T';
+  titleBadge.title = 'タイトル画像';
+  titleSlot.appendChild(titleBadge);
+
+  const titlePreviewZone = document.createElement('div');
+  titlePreviewZone.className = 'slot-preview-container';
+  
+  const hasTitleImage = !!window.titleImage;
+  
+  if (hasTitleImage) {
+    const thumb = document.createElement('img');
+    thumb.src = window.titleImage.src;
+    titlePreviewZone.appendChild(thumb);
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'slot-filename';
+    nameSpan.innerText = window.titleImageName || 'title_image.png';
+    nameSpan.title = window.titleImageName || 'title_image.png';
+    titlePreviewZone.appendChild(nameSpan);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'slot-delete-btn';
+    deleteBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    deleteBtn.title = '画像を削除';
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      window.titleImage = null;
+      window.titleImageName = '';
+      populateSectionImagesGrid();
+      syncFabricImages();
+      triggerRenderDebounced();
+      showToast('タイトル画像を削除しました', 'warning');
+    };
+    titlePreviewZone.appendChild(deleteBtn);
+  } else {
+    const placeholderSpan = document.createElement('span');
+    placeholderSpan.innerText = 'タイトル画像をアップロード';
+    titlePreviewZone.appendChild(placeholderSpan);
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.style.display = 'none';
+    titlePreviewZone.appendChild(fileInput);
+
+    titlePreviewZone.onclick = () => fileInput.click();
+
+    fileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        if (!file.type.startsWith('image/')) {
+          showToast('画像ファイルをアップロードしてください。', 'danger');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            window.titleImage = img;
+            window.titleImageName = file.name;
+            populateSectionImagesGrid();
+            syncFabricImages();
+            triggerRenderDebounced();
+            showToast('タイトル画像を登録しました');
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+  }
+  titleSlot.appendChild(titlePreviewZone);
+
+  // Title Setting Button
+  const titleActionsContainer = document.createElement('div');
+  titleActionsContainer.className = 'slot-actions';
+  
+  const titleSetBtn = document.createElement('button');
+  titleSetBtn.className = 'slot-move-btn';
+  titleSetBtn.innerHTML = '<i class="fa-solid fa-gear"></i>';
+  titleSetBtn.title = 'スタンプから選択';
+  titleSetBtn.onclick = (e) => {
+    e.stopPropagation();
+    openStampPicker((selectedImg, selectedName) => {
+      window.titleImage = selectedImg;
+      window.titleImageName = selectedName;
+      populateSectionImagesGrid();
+      syncFabricImages();
+      triggerRenderDebounced();
+      showToast('タイトル画像を設定しました');
+    });
+  };
+  titleActionsContainer.appendChild(titleSetBtn);
+  titleSlot.appendChild(titleActionsContainer);
+  container.appendChild(titleSlot);
+
+  // --- Section Slots 1-30 ---
   for (let i = 1; i <= 30; i++) {
     const slot = document.createElement('div');
     slot.className = 'section-image-slot';
@@ -1047,6 +1361,7 @@ function populateSectionImagesGrid() {
         delete window.sectionImages[i];
         delete window.sectionImageNames[i];
         populateSectionImagesGrid();
+        syncFabricImages();
         triggerRenderDebounced();
         showToast(`画像 ${i} を削除しました`, 'warning');
       };
@@ -1078,6 +1393,7 @@ function populateSectionImagesGrid() {
               window.sectionImages[i] = img;
               window.sectionImageNames[i] = file.name;
               populateSectionImagesGrid();
+              syncFabricImages();
               triggerRenderDebounced();
               showToast(`画像 ${i} を登録しました`);
             };
@@ -1090,7 +1406,7 @@ function populateSectionImagesGrid() {
     
     slot.appendChild(previewZone);
 
-    // 3. Move Actions (Up/Down/Number Shift)
+    // 3. Move Actions (Up/Down/Number Shift/Stamp Set)
     const actionsContainer = document.createElement('div');
     actionsContainer.className = 'slot-actions';
 
@@ -1133,6 +1449,23 @@ function populateSectionImagesGrid() {
       }
     };
     actionsContainer.appendChild(numBtn);
+
+    const setBtn = document.createElement('button');
+    setBtn.className = 'slot-move-btn';
+    setBtn.innerHTML = '<i class="fa-solid fa-gear"></i>';
+    setBtn.title = 'スタンプから選択';
+    setBtn.onclick = (e) => {
+      e.stopPropagation();
+      openStampPicker((selectedImg, selectedName) => {
+        window.sectionImages[i] = selectedImg;
+        window.sectionImageNames[i] = selectedName;
+        populateSectionImagesGrid();
+        syncFabricImages();
+        triggerRenderDebounced();
+        showToast(`画像 ${i} にスタンプを設定しました`);
+      });
+    };
+    actionsContainer.appendChild(setBtn);
 
     slot.appendChild(actionsContainer);
     container.appendChild(slot);

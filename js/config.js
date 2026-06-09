@@ -46,7 +46,7 @@ function get15x2Coords() {
     });
   }
   return {
-    title: { x: 80, y: 50, w: 1040, h: 130 },
+    title: { x: 120, y: 50, w: 800, h: 130 },
     sections: sections
   };
 }
@@ -76,7 +76,7 @@ function get5x6Coords() {
     });
   }
   return {
-    title: { x: 80, y: 50, w: 1040, h: 130 },
+    title: { x: 120, y: 50, w: 800, h: 130 },
     sections: sections
   };
 }
@@ -264,11 +264,11 @@ function drawBaseCanvasTemplate() {
   // 3. Draw Title Box (Drop Shadow and Navy Border)
   // Drop Shadow
   ctx.fillStyle = coralColor;
-  drawRoundedRect(ctx, 80 + 8, 50 + 8, 1040, 130, 12);
+  drawRoundedRect(ctx, 80 + 8, 50 + 8, 880, 130, 12);
   ctx.fill();
   // Main Rect
   ctx.fillStyle = '#FFFFFF';
-  drawRoundedRect(ctx, 80, 50, 1040, 130, 12);
+  drawRoundedRect(ctx, 80, 50, 880, 130, 12);
   ctx.fill();
   ctx.strokeStyle = navyColor;
   ctx.lineWidth = 6;
