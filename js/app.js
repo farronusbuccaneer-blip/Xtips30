@@ -1004,6 +1004,55 @@ function initCollapsibleSections() {
 }
 
 /**
+ * Saves title image to Dexie DB under key 'saved_title_image'
+ */
+async function saveTitleImageToDB(dataUrl, name) {
+  try {
+    await db.configs.put({
+      template_id: 'saved_title_image',
+      data_url: dataUrl,
+      name: name
+    });
+  } catch (e) {
+    console.error('Failed to save title image to DB:', e);
+  }
+}
+
+/**
+ * Deletes title image from Dexie DB
+ */
+async function deleteTitleImageFromDB() {
+  try {
+    await db.configs.delete('saved_title_image');
+  } catch (e) {
+    console.error('Failed to delete title image from DB:', e);
+  }
+}
+
+/**
+ * Loads title image from Dexie DB on startup
+ */
+async function loadSavedTitleImage() {
+  try {
+    const saved = await db.configs.get('saved_title_image');
+    if (saved && saved.data_url) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          window.titleImage = img;
+          window.titleImageName = saved.name || 'title_image.png';
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = saved.data_url;
+      });
+    }
+  } catch (e) {
+    console.error('Failed to load saved title image:', e);
+  }
+}
+
+/**
  * Opens stamp picker modal to select an overlay
  */
 async function openStampPicker(onSelect) {
@@ -1077,7 +1126,7 @@ function syncFabricImages() {
       const fabricImg = new fabric.Image(window.titleImage, {
         name: 'title',
         left: 1060,
-        top: 165,
+        top: 115,
         originX: 'center',
         originY: 'center',
         lockMovementX: true,
@@ -1113,7 +1162,7 @@ function syncFabricImages() {
           scaleY: scale
         });
       }
-      titleObj.set({ left: 1060, top: 165 });
+      titleObj.set({ left: 1060, top: 115 });
     }
   } else if (titleObj) {
     canvas.remove(titleObj);
@@ -1249,10 +1298,11 @@ function populateSectionImagesGrid() {
     deleteBtn.className = 'slot-delete-btn';
     deleteBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
     deleteBtn.title = '画像を削除';
-    deleteBtn.onclick = (e) => {
+    deleteBtn.onclick = async (e) => {
       e.stopPropagation();
       window.titleImage = null;
       window.titleImageName = '';
+      await deleteTitleImageFromDB();
       populateSectionImagesGrid();
       syncFabricImages();
       triggerRenderDebounced();
@@ -1282,9 +1332,10 @@ function populateSectionImagesGrid() {
         const reader = new FileReader();
         reader.onload = (event) => {
           const img = new Image();
-          img.onload = () => {
+          img.onload = async () => {
             window.titleImage = img;
             window.titleImageName = file.name;
+            await saveTitleImageToDB(event.target.result, file.name);
             populateSectionImagesGrid();
             syncFabricImages();
             triggerRenderDebounced();
@@ -1311,10 +1362,12 @@ function populateSectionImagesGrid() {
     openStampPicker((selectedImg, selectedName) => {
       window.titleImage = selectedImg;
       window.titleImageName = selectedName;
-      populateSectionImagesGrid();
-      syncFabricImages();
-      triggerRenderDebounced();
-      showToast('タイトル画像を設定しました');
+      saveTitleImageToDB(selectedImg.src, selectedName).then(() => {
+        populateSectionImagesGrid();
+        syncFabricImages();
+        triggerRenderDebounced();
+        showToast('タイトル画像を設定しました');
+      });
     });
   };
   titleActionsContainer.appendChild(titleSetBtn);
@@ -1529,7 +1582,9 @@ window.onload = async () => {
       initXmlEditorShortcuts();
       initMobileNavigation();
       initCollapsibleSections();
-      populateSectionImagesGrid();
+      loadSavedTitleImage().then(() => {
+        populateSectionImagesGrid();
+      });
 
       // 5. Load default starter data
       xmlInput.value = DEFAULT_XML_TEXT;
