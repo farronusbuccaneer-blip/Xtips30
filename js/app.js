@@ -8,7 +8,7 @@ let activeTemplate = null;
 let activeCoords = null;
 let zoomRatio = 1.0;
 let originalWidth = 1200;
-let originalHeight = 1500;
+let originalHeight = 1600;
 let textRenderDebounceTimer = null;
 window.sectionImages = {}; // Session transparent PNGs for sections 1-30 (in-memory)
 window.sectionImageNames = {}; // File names for transparent PNGs (in-memory)
@@ -1180,24 +1180,24 @@ function syncFabricImages() {
         const col = idx < 15 ? 0 : 1;
         const row = idx < 15 ? idx : idx - 15;
         const cardX = 60 + col * 560;
-        const cardY = 200 + row * 80;
+        const cardY = 230 + row * 86;
         const cardW = 520;
-        const cardH = 74;
-        const imgW = 60;
-        const imgH = 60;
+        const cardH = 80;
+        const imgW = 64;
+        const imgH = 64;
         targetLeft = cardX + cardW - imgW - 10 + imgW / 2;
         targetTop = cardY + (cardH - imgH) / 2 + imgH / 2;
       } else if (activeTemplate && activeTemplate.id === TEMPLATE_5_6_ID) {
         const row = Math.floor(idx / 6);
         const col = idx % 6;
         const cardX = 68 + col * 180;
-        const cardY = 200 + row * 232;
+        const cardY = 230 + row * 252;
         const cardW = 164;
-        const cardH = 216;
+        const cardH = 236;
         const imgW = 70;
         const imgH = 70;
         targetLeft = cardX + (cardW - imgW) / 2 + imgW / 2;
-        targetTop = cardY + cardH - imgH - 10 + imgH / 2;
+        targetTop = cardY + cardH - imgH - 12 + imgH / 2;
       }
 
       if (!secObj) {
@@ -1221,8 +1221,8 @@ function syncFabricImages() {
           mt: false, mb: false, ml: false, mr: false, mtr: false
         });
         
-        const maxW = (activeTemplate && activeTemplate.id === TEMPLATE_15_2_ID) ? 60 : 70;
-        const maxH = (activeTemplate && activeTemplate.id === TEMPLATE_15_2_ID) ? 60 : 70;
+        const maxW = (activeTemplate && activeTemplate.id === TEMPLATE_15_2_ID) ? 64 : 70;
+        const maxH = (activeTemplate && activeTemplate.id === TEMPLATE_15_2_ID) ? 64 : 70;
         const scale = Math.min(maxW / (window.sectionImages[i].naturalWidth || window.sectionImages[i].width), maxH / (window.sectionImages[i].naturalHeight || window.sectionImages[i].height));
         fabricImg.set({
           scaleX: scale,
@@ -1236,8 +1236,8 @@ function syncFabricImages() {
             width: window.sectionImages[i].naturalWidth || window.sectionImages[i].width,
             height: window.sectionImages[i].naturalHeight || window.sectionImages[i].height
           });
-          const maxW = (activeTemplate && activeTemplate.id === TEMPLATE_15_2_ID) ? 60 : 70;
-          const maxH = (activeTemplate && activeTemplate.id === TEMPLATE_15_2_ID) ? 60 : 70;
+          const maxW = (activeTemplate && activeTemplate.id === TEMPLATE_15_2_ID) ? 64 : 70;
+          const maxH = (activeTemplate && activeTemplate.id === TEMPLATE_15_2_ID) ? 64 : 70;
           const scale = Math.min(maxW / (window.sectionImages[i].naturalWidth || window.sectionImages[i].width), maxH / (window.sectionImages[i].naturalHeight || window.sectionImages[i].height));
           secObj.set({
             scaleX: scale,

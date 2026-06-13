@@ -23,7 +23,7 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
 
 /**
  * Returns coordinate bounds for the 15 rows by 2 columns template.
- * Canvas resolution: 1200x1500 (4:5 Aspect Ratio).
+ * Canvas resolution: 1200x1600 (3:4 Aspect Ratio).
  * Column-first ordering (1-15 left, 16-30 right).
  */
 function get15x2Coords() {
@@ -34,15 +34,15 @@ function get15x2Coords() {
     
     // Card geometry:
     const cardX = 60 + col * 560;
-    const cardY = 200 + row * 80;
+    const cardY = 230 + row * 86;
     const cardW = 520;
-    const cardH = 74;
+    const cardH = 80;
 
     sections.push({
       x: cardX + 48,           // Offset for number circle (48px)
-      y: cardY + 5,            // Offset leaving thin card border spacing
+      y: cardY + 6,            // Offset leaving thin card border spacing
       w: cardW - 48 - 84,      // Width leaving space for number badge (48px) and image slot (84px)
-      h: cardH - 10            // Height leaving top/bottom card padding
+      h: cardH - 12            // Height leaving top/bottom card padding
     });
   }
   return {
@@ -53,7 +53,7 @@ function get15x2Coords() {
 
 /**
  * Returns coordinate bounds for the 5 rows by 6 columns template.
- * Canvas resolution: 1200x1500 (4:5 Aspect Ratio).
+ * Canvas resolution: 1200x1600 (3:4 Aspect Ratio).
  * Row-first ordering.
  */
 function get5x6Coords() {
@@ -64,15 +64,15 @@ function get5x6Coords() {
     
     // Card geometry:
     const cardX = 68 + col * 180;
-    const cardY = 200 + row * 232;
+    const cardY = 230 + row * 252;
     const cardW = 164;
-    const cardH = 216;
+    const cardH = 236;
 
     sections.push({
       x: cardX + 10,           // Left padding inside card
-      y: cardY + 42,           // Offset leaving top number circle spacing (42px)
+      y: cardY + 44,           // Offset leaving top number circle spacing (44px)
       w: cardW - 20,           // Width leaving side paddings
-      h: cardH - 42 - 84       // Height leaving top circle (42px) and bottom image slot (84px)
+      h: cardH - 44 - 94       // Height leaving top circle (44px) and bottom image slot (94px)
     });
   }
   return {
@@ -240,7 +240,7 @@ const DEFAULT_XML_TEXT = `<title>分かったふりの愛想笑いを防ぐ<red>
 function drawBaseCanvasTemplate() {
   const canvas = document.createElement('canvas');
   canvas.width = 1200;
-  canvas.height = 1500;
+  canvas.height = 1600;
   const ctx = canvas.getContext('2d');
 
   // 1. Draw Cream Background
@@ -289,9 +289,9 @@ function generate15x2Template() {
     const col = k < 15 ? 0 : 1;
     const row = k < 15 ? k : k - 15;
     const boxX = 60 + col * 560;
-    const boxY = 200 + row * 80;
+    const boxY = 230 + row * 86;
     const boxW = 520;
-    const boxH = 74;
+    const boxH = 80;
 
     // Fill white card
     ctx.fillStyle = '#FFFFFF';
@@ -305,7 +305,7 @@ function generate15x2Template() {
 
     // Number Circle
     const circleX = boxX + 24;
-    const circleY = boxY + 37;
+    const circleY = boxY + 40;
     const circleRadius = 14;
 
     ctx.beginPath();
@@ -336,9 +336,9 @@ function generate5x6Template() {
     const row = Math.floor(k / 6);
     const col = k % 6;
     const boxX = 68 + col * 180;
-    const boxY = 200 + row * 232;
+    const boxY = 230 + row * 252;
     const boxW = 164;
-    const boxH = 216;
+    const boxH = 236;
 
     // Fill white card
     ctx.fillStyle = '#FFFFFF';
@@ -352,7 +352,7 @@ function generate5x6Template() {
 
     // Number Circle Badge at top center
     const badgeX = boxX + boxW / 2;
-    const badgeY = boxY + 22;
+    const badgeY = boxY + 24;
     const badgeRadius = 14;
 
     ctx.beginPath();
@@ -377,7 +377,7 @@ function generate5x6Template() {
  */
 function getScaledCoords(targetWidth, targetHeight) {
   const scaleX = targetWidth / 1200;
-  const scaleY = targetHeight / 1500;
+  const scaleY = targetHeight / 1600;
 
   const baseCoords = get15x2Coords();
   return {
